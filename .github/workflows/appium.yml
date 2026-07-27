@@ -97,15 +97,17 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
+          # android-emulator-runner invokes /usr/bin/sh (not bash) — avoid bash-only flags like pipefail
           script: |
-            set -euo pipefail
+            set -eu
             echo "Connected devices:"
             adb devices -l
             export CI=true
             export DEVICE_NAME="Android Emulator"
             export PLATFORM_VERSION=14
-            export UDID="$(adb devices | awk '/emulator-/{print $1; exit}')"
-            echo "UDID=$UDID"
+            UDID="$(adb devices | awk '/emulator-/{print $1; exit}')"
+            export UDID
+            echo "UDID=${UDID:-}"
             ${{ steps.resolve.outputs.cmd }}
 
       - name: Generate Allure report
