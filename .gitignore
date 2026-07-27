@@ -1,0 +1,10 @@
+node_modules/
+allure-results/
+allure-report/
+test-results/
+*.log
+.DS_Store
+.idea/
+.vscode/
+apps/*.apk
+!apps/.gitkeep
