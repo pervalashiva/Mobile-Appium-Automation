@@ -187,6 +187,34 @@ Mobile-Appium-Automation/
 
 ---
 
+## GitHub Actions (CI)
+
+Mobile tests run on GitHub-hosted Ubuntu with an **Android emulator** (API 34, x86_64).
+
+Workflow: [`.github/workflows/appium.yml`](.github/workflows/appium.yml)
+
+### What CI does
+
+1. Install Node 20 + Java 17  
+2. `npm ci` and download the dummy APK  
+3. Install Appium UiAutomator2 driver  
+4. Start Pixel 6 / API 34 emulator (KVM)  
+5. Run WebdriverIO + Appium specs  
+6. Upload **Allure report**, results, and failure screenshots as artifacts  
+
+### Trigger CI
+
+- **Push / PR** to `main` — runs the full suite  
+- **Actions → Appium Android Tests → Run workflow** — choose `all`, `login`, `catalog`, or `cart`
+
+### Download reports
+
+After a run: **Actions →** select the workflow run → **Artifacts** → download `allure-report-*`.
+
+> Emulator boot in CI is slower than a local Mac emulator (often 5–15 minutes). Prefer device clouds (Sauce Labs / BrowserStack) for production pipelines.
+
+---
+
 ## Troubleshooting
 
 | Issue | Fix |
@@ -199,6 +227,7 @@ Mobile-Appium-Automation/
 | APK missing | `npm run download:app` |
 | Driver issues | `npx appium driver install uiautomator2` |
 | Doctor check | `npm run appium:doctor` |
+| CI emulator fails / no KVM | Re-run the workflow; GitHub Ubuntu runners need nested virtualization |
 
 ---
 

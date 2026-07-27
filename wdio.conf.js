@@ -5,6 +5,7 @@ import allureReporter from '@wdio/allure-reporter';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apkPath = path.join(__dirname, 'apps', 'mda-2.2.0-25.apk');
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 const deviceName = process.env.DEVICE_NAME || 'Android Emulator';
 const platformVersion = process.env.PLATFORM_VERSION || '';
 const udid = process.env.UDID || '';
@@ -38,13 +39,16 @@ export const config = {
       'appium:fullReset': false,
       'appium:newCommandTimeout': 240,
       'appium:adbExecTimeout': 120000,
+      'appium:disableWindowAnimation': isCI,
+      'appium:ignoreHiddenApiPolicyError': true,
+      'appium:skipDeviceInitialization': false,
     },
   ],
-  logLevel: 'info',
+  logLevel: isCI ? 'warn' : 'info',
   bail: 0,
-  waitforTimeout: 20000,
+  waitforTimeout: isCI ? 30000 : 20000,
   connectionRetryTimeout: 180000,
-  connectionRetryCount: 2,
+  connectionRetryCount: isCI ? 3 : 2,
   services: [
     [
       'appium',

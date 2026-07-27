@@ -1,0 +1,136 @@
+name: Appium Android Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      test_selection:
+        description: 'Which tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - login
+          - catalog
+          - cart
+
+jobs:
+  android:
+    name: Android emulator (${{ github.event.inputs.test_selection || 'all' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download dummy APK
+        run: npm run download:app
+
+      - name: Install Appium UiAutomator2 driver
+        run: npx appium driver install uiautomator2
+
+      - name: Clean previous reports
+        run: rm -rf allure-results allure-report test-results
+
+      - name: Resolve test command
+        id: resolve
+        shell: bash
+        run: |
+          SELECTION="${{ github.event.inputs.test_selection || 'all' }}"
+          case "$SELECTION" in
+            all) CMD="npm test" ;;
+            login) CMD="npm run test:login" ;;
+            catalog) CMD="npm run test:catalog" ;;
+            cart) CMD="npm run test:cart" ;;
+            *) echo "Unknown selection: $SELECTION"; exit 1 ;;
+          esac
+          echo "selection=$SELECTION" >> "$GITHUB_OUTPUT"
+          echo "cmd=$CMD" >> "$GITHUB_OUTPUT"
+          echo "Running selection=$SELECTION cmd=$CMD"
+
+      - name: Run Appium tests on Android emulator
+        id: tests
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            echo "Connected devices:"
+            adb devices -l
+            export CI=true
+            export DEVICE_NAME="Android Emulator"
+            export PLATFORM_VERSION=14
+            export UDID="$(adb devices | awk '/emulator-/{print $1; exit}')"
+            echo "UDID=$UDID"
+            ${{ steps.resolve.outputs.cmd }}
+
+      - name: Generate Allure report
+        if: ${{ !cancelled() }}
+        run: npm run allure:generate
+
+      - name: Upload Allure report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ steps.resolve.outputs.selection }}-${{ github.run_id }}
+          path: allure-report/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Allure results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ steps.resolve.outputs.selection }}-${{ github.run_id }}
+          path: allure-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ steps.resolve.outputs.selection }}-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Fail job if tests failed
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: |
+          echo "Appium tests failed. Allure/screenshot artifacts were still uploaded when available."
+          exit 1
