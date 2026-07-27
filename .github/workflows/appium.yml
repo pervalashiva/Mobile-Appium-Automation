@@ -22,7 +22,7 @@ jobs:
   android:
     name: Android emulator (${{ github.event.inputs.test_selection || 'all' }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -89,26 +89,21 @@ jobs:
         id: tests
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          TEST_CMD: ${{ steps.resolve.outputs.cmd }}
         with:
-          api-level: 34
+          api-level: 30
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
           force-avd-creation: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          # android-emulator-runner invokes /usr/bin/sh (not bash) — avoid bash-only flags like pipefail
-          script: |
-            set -eu
-            echo "Connected devices:"
-            adb devices -l
-            export CI=true
-            export DEVICE_NAME="Android Emulator"
-            export PLATFORM_VERSION=14
-            UDID="$(adb devices | awk '/emulator-/{print $1; exit}')"
-            export UDID
-            echo "UDID=${UDID:-}"
-            ${{ steps.resolve.outputs.cmd }}
+          # Use bash helper (android-emulator-runner invokes /usr/bin/sh for inline scripts)
+          script: chmod +x scripts/ci-run-tests.sh && bash scripts/ci-run-tests.sh
 
       - name: Generate Allure report
         if: ${{ !cancelled() }}
@@ -132,17 +127,17 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      - name: Upload failure screenshots
+      - name: Upload diagnostics / screenshots
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ steps.resolve.outputs.selection }}-${{ github.run_id }}
           path: test-results/
           retention-days: 14
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Fail job if tests failed
         if: ${{ steps.tests.outcome == 'failure' }}
         run: |
-          echo "Appium tests failed. Allure/screenshot artifacts were still uploaded when available."
+          echo "Appium tests failed. Check Allure + test-results artifacts (logcat/adb)."
           exit 1

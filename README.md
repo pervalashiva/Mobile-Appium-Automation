@@ -189,7 +189,7 @@ Mobile-Appium-Automation/
 
 ## GitHub Actions (CI)
 
-Mobile tests run on GitHub-hosted Ubuntu with an **Android emulator** (API 34, x86_64).
+Mobile tests run on GitHub-hosted Ubuntu with an **Android emulator** (API 30, x86_64).
 
 Workflow: [`.github/workflows/appium.yml`](.github/workflows/appium.yml)
 
