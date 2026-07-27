@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Java
@@ -53,8 +53,16 @@ jobs:
       - name: Download dummy APK
         run: npm run download:app
 
-      - name: Install Appium UiAutomator2 driver
-        run: npx appium driver install uiautomator2
+      # package.json already depends on appium-uiautomator2-driver; "install" fails if present
+      - name: Ensure Appium UiAutomator2 driver
+        run: |
+          set -euo pipefail
+          if npx appium driver list --installed 2>/dev/null | grep -qi uiautomator2; then
+            echo "UiAutomator2 already available"
+          else
+            npx appium driver install uiautomator2
+          fi
+          npx appium driver list --installed
 
       - name: Clean previous reports
         run: rm -rf allure-results allure-report test-results
