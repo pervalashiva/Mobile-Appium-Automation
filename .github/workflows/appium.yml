@@ -53,16 +53,18 @@ jobs:
       - name: Download dummy APK
         run: npm run download:app
 
-      # package.json already depends on appium-uiautomator2-driver; "install" fails if present
+      # package.json already depends on appium-uiautomator2-driver; "install" fails if present.
+      # Human-readable list goes to stderr — use --json (stdout) for the presence check.
       - name: Ensure Appium UiAutomator2 driver
         run: |
           set -euo pipefail
-          if npx appium driver list --installed 2>/dev/null | grep -qi uiautomator2; then
+          if npx appium driver list --installed --json | grep -qi '"uiautomator2"'; then
             echo "UiAutomator2 already available"
           else
             npx appium driver install uiautomator2
           fi
-          npx appium driver list --installed
+          npx appium driver list --installed --json
+          npx appium driver list --installed || true
 
       - name: Clean previous reports
         run: rm -rf allure-results allure-report test-results
